@@ -49,30 +49,32 @@ export function MonthCalendar({
   });
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <button
           type="button"
           onClick={() =>
             onMonthChange(new Date(month.getFullYear(), month.getMonth() - 1, 1))
           }
-          className="rounded-md px-2 py-1 text-sm text-gray-600 hover:bg-gray-100"
+          className="rounded-full p-2 text-sm text-gray-500 hover:bg-violet-50 hover:text-violet-700"
+          aria-label="Previous month"
         >
-          ← Prev
+          ←
         </button>
-        <h2 className="text-sm font-semibold text-gray-900">{monthLabel}</h2>
+        <h2 className="font-serif text-lg font-semibold text-gray-900">{monthLabel}</h2>
         <button
           type="button"
           onClick={() =>
             onMonthChange(new Date(month.getFullYear(), month.getMonth() + 1, 1))
           }
-          className="rounded-md px-2 py-1 text-sm text-gray-600 hover:bg-gray-100"
+          className="rounded-full p-2 text-sm text-gray-500 hover:bg-violet-50 hover:text-violet-700"
+          aria-label="Next month"
         >
-          Next →
+          →
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-400">
+      <div className="grid grid-cols-7 gap-2 text-center text-xs font-medium text-gray-400">
         {WEEKDAY_LABELS.map((label) => (
           <div key={label} className="py-1">
             {label}
@@ -80,7 +82,7 @@ export function MonthCalendar({
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-2">
         {weeks.map((week) =>
           week.map((day) => {
             const key = dateKey(day);
@@ -91,7 +93,7 @@ export function MonthCalendar({
                 key={key}
                 type="button"
                 onClick={() => onDayClick(key)}
-                className={`min-h-16 rounded-md border p-1 text-left text-xs transition ${
+                className={`min-h-24 rounded-xl border p-2 text-left text-xs transition ${
                   inMonth
                     ? "border-gray-100"
                     : "border-transparent text-gray-300"
@@ -101,7 +103,7 @@ export function MonthCalendar({
                   {day.getDate()}
                 </div>
                 {content?.lines.map((line, i) => (
-                  <div key={i} className="mt-0.5 truncate text-[11px] leading-tight">
+                  <div key={i} className="mt-1 truncate text-[11px] font-medium leading-tight">
                     {line}
                   </div>
                 ))}

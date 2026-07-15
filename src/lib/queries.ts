@@ -9,6 +9,7 @@ export async function getEvents(): Promise<EventWithConfirmedSlot[]> {
   const { data, error } = await supabase
     .from("events")
     .select("*")
+    .eq("archived", false)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);

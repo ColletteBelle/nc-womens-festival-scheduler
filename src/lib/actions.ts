@@ -28,7 +28,10 @@ export async function createEvent(input: {
     .select()
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("createEvent: failed to insert event", error);
+    throw new Error(error.message);
+  }
 
   if (input.type === "preselected" && input.preselectedSlots.length > 0) {
     const { error: slotsError } = await supabase.from("slots").insert(
@@ -41,7 +44,10 @@ export async function createEvent(input: {
         added_by_name: null,
       }))
     );
-    if (slotsError) throw new Error(slotsError.message);
+    if (slotsError) {
+      console.error("createEvent: failed to insert slots", slotsError);
+      throw new Error(slotsError.message);
+    }
   }
 
   revalidatePath("/");
@@ -131,5 +137,15 @@ export async function unconfirmEvent(input: { eventId: string }) {
 
   if (error) throw new Error(error.message);
   revalidatePath(`/events/${input.eventId}`);
+  revalidatePath("/");
+}
+
+export async function archiveEvent(input: { eventId: string }) {
+  const { error } = await supabase
+    .from("events")
+    .update({ archived: true })
+    .eq("id", input.eventId);
+
+  if (error) throw new Error(error.message);
   revalidatePath("/");
 }

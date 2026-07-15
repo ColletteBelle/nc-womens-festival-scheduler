@@ -4,10 +4,15 @@ import { useMemo, useState } from "react";
 import { EventWithSlots, SlotWithVotes } from "@/lib/types";
 import { MonthCalendar, DayContent } from "./MonthCalendar";
 import { ResultsPanel } from "./ResultsPanel";
+import { ParticipantsPanel } from "./ParticipantsPanel";
 import { DayModal } from "./DayModal";
-import { formatTime } from "@/lib/format";
+import { VoterNameGate } from "./VoterNameGate";
+import { StatusBadge } from "./StatusBadge";
+import { useVoterName } from "@/hooks/useVoterName";
+import { formatTimeRange } from "@/lib/format";
 
 export function EventDetailClient({ event }: { event: EventWithSlots }) {
+  const { voterName, setVoterName, loaded } = useVoterName(event.id);
   const [month, setMonth] = useState(() => {
     const firstSlot = event.slots[0];
     if (firstSlot) {
@@ -39,10 +44,10 @@ export function EventDetailClient({ event }: { event: EventWithSlots }) {
     const colorClass = isConfirmedDay
       ? "bg-emerald-100 border-emerald-400"
       : hasPreselected
-      ? "bg-blue-100 border-blue-300"
-      : "bg-purple-100 border-purple-300";
+      ? "bg-violet-100 border-violet-300"
+      : "bg-fuchsia-100 border-fuchsia-300";
 
-    const lines = daySlots.map((s) => formatTime(s.start_time));
+    const lines = daySlots.map((s) => formatTimeRange(s.start_time, s.end_time));
 
     return { colorClass, lines };
   }
@@ -50,40 +55,68 @@ export function EventDetailClient({ event }: { event: EventWithSlots }) {
   const dayModalSlots = selectedDate ? slotsByDate.get(selectedDate) ?? [] : [];
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-      <div className="lg:col-span-3">
-        <MonthCalendar
-          month={month}
-          onMonthChange={setMonth}
-          getDayContent={getDayContent}
-          onDayClick={setSelectedDate}
-        />
-        <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-500">
-          <Legend colorClass="bg-blue-100 border-blue-300" label="Preselected" />
-          <Legend colorClass="bg-purple-100 border-purple-300" label="Suggested" />
-          <Legend colorClass="bg-emerald-100 border-emerald-400" label="Confirmed" />
+    <>
+      <div className="mb-6 mt-2 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-3xl font-semibold text-gray-900">{event.title}</h1>
+          {event.description && (
+            <p className="mt-1 text-sm text-gray-500">{event.description}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {loaded && voterName && (
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-500 shadow-sm">
+              Voting as <span className="text-gray-900">{voterName}</span>
+            </span>
+          )}
+          <StatusBadge status={event.status} />
         </div>
       </div>
-      <div className="lg:col-span-1">
-        <ResultsPanel event={event} slots={event.slots} />
-      </div>
 
-      {selectedDate && (
-        <DayModal
-          event={event}
-          date={selectedDate}
-          slots={dayModalSlots}
-          onClose={() => setSelectedDate(null)}
-        />
+      {!loaded ? null : !voterName ? (
+        <VoterNameGate onSubmit={setVoterName} />
+      ) : (
+        <div className="space-y-6">
+          <ParticipantsPanel slots={event.slots} />
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-7">
+            <div className="lg:col-span-5">
+              <MonthCalendar
+                month={month}
+                onMonthChange={setMonth}
+                getDayContent={getDayContent}
+                onDayClick={setSelectedDate}
+              />
+              <div className="mt-4 flex flex-wrap gap-2 text-xs text-gray-500">
+                <Legend colorClass="bg-violet-100 border-violet-300" label="Preselected" />
+                <Legend colorClass="bg-fuchsia-100 border-fuchsia-300" label="Suggested" />
+                <Legend colorClass="bg-emerald-100 border-emerald-400" label="Confirmed" />
+              </div>
+            </div>
+            <div className="lg:col-span-2">
+              <ResultsPanel event={event} slots={event.slots} voterName={voterName} />
+            </div>
+
+            {selectedDate && (
+              <DayModal
+                event={event}
+                date={selectedDate}
+                slots={dayModalSlots}
+                voterName={voterName}
+                onClose={() => setSelectedDate(null)}
+              />
+            )}
+          </div>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
 function Legend({ colorClass, label }: { colorClass: string; label: string }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className={`h-3 w-3 rounded-sm border ${colorClass}`} />
+    <div className="flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-2.5 py-1 shadow-sm">
+      <span className={`h-2.5 w-2.5 rounded-full border ${colorClass}`} />
       {label}
     </div>
   );

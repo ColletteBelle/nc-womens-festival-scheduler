@@ -4,60 +4,42 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EventRow, SlotWithVotes } from "@/lib/types";
 import { addSlot, upsertVote } from "@/lib/actions";
-import { useVoterName } from "@/hooks/useVoterName";
-import {
-  addMinutesToTime,
-  formatDateLong,
-  formatTime,
-  formatTimeRange,
-} from "@/lib/format";
+import { TimeSelect } from "./TimeSelect";
+import { Button } from "./Button";
+import { DurationPicker } from "./DurationPicker";
+import { addMinutesToTime, formatDateLong, formatTime, formatTimeRange } from "@/lib/format";
+
+interface PendingTime {
+  id: string;
+  start_time: string;
+  end_time: string;
+  durationMinutes: number;
+}
+
+function newId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function defaultPendingTime(): PendingTime {
+  return { id: newId(), start_time: "18:00", end_time: "20:00", durationMinutes: 240 };
+}
 
 interface DayModalProps {
   event: EventRow;
   date: string;
   slots: SlotWithVotes[];
+  voterName: string;
   onClose: () => void;
 }
 
-export function DayModal({ event, date, slots, onClose }: DayModalProps) {
+export function DayModal({ event, date, slots, voterName, onClose }: DayModalProps) {
   const router = useRouter();
-  const { voterName, setVoterName, loaded } = useVoterName(event.id);
-  const [nameInput, setNameInput] = useState("");
   const [showAddForm, setShowAddForm] = useState(slots.length === 0);
-  const [newStartTime, setNewStartTime] = useState("18:00");
-  const [newEndTime, setNewEndTime] = useState("20:00");
+  const [pendingTimes, setPendingTimes] = useState<PendingTime[]>(() => [
+    defaultPendingTime(),
+  ]);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  if (!loaded) return null;
-
-  if (!voterName) {
-    return (
-      <Modal onClose={onClose} title={formatDateLong(date)}>
-        <p className="mb-3 text-sm text-gray-500">
-          What&rsquo;s your name? You&rsquo;ll only need to enter it once for this event.
-        </p>
-        <div className="flex gap-2">
-          <input
-            autoFocus
-            type="text"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
-            placeholder="Your name"
-          />
-          <button
-            type="button"
-            disabled={!nameInput.trim()}
-            onClick={() => setVoterName(nameInput.trim())}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            Continue
-          </button>
-        </div>
-      </Modal>
-    );
-  }
 
   async function castVote(slotId: string, response: "yes" | "no", note: string) {
     setBusy(true);
@@ -66,7 +48,7 @@ export function DayModal({ event, date, slots, onClose }: DayModalProps) {
       await upsertVote({
         eventId: event.id,
         slotId,
-        voterName: voterName as string,
+        voterName,
         response,
         note,
       });
@@ -78,25 +60,47 @@ export function DayModal({ event, date, slots, onClose }: DayModalProps) {
     }
   }
 
-  async function submitNewSlot(e: React.FormEvent) {
+  function addPendingTime() {
+    setPendingTimes((prev) => [...prev, defaultPendingTime()]);
+  }
+
+  function updatePendingTime(
+    id: string,
+    field: "start_time" | "end_time" | "durationMinutes",
+    value: string | number
+  ) {
+    setPendingTimes((prev) =>
+      prev.map((time) => (time.id === id ? { ...time, [field]: value } : time))
+    );
+  }
+
+  function removePendingTime(id: string) {
+    setPendingTimes((prev) => prev.filter((time) => time.id !== id));
+  }
+
+  async function submitPendingTimes(e: React.FormEvent) {
     e.preventDefault();
+    if (pendingTimes.length === 0) return;
     setBusy(true);
     setErrorMessage(null);
     try {
-      const endTime =
-        event.type === "open" && event.duration_minutes
-          ? addMinutesToTime(newStartTime, event.duration_minutes)
-          : newEndTime;
+      for (const time of pendingTimes) {
+        const endTime =
+          event.type === "open"
+            ? addMinutesToTime(time.start_time, time.durationMinutes)
+            : time.end_time;
 
-      await addSlot({
-        eventId: event.id,
-        date,
-        startTime: newStartTime,
-        endTime,
-        addedByName: voterName as string,
-      });
+        await addSlot({
+          eventId: event.id,
+          date,
+          startTime: time.start_time,
+          endTime,
+          addedByName: voterName,
+        });
+      }
       router.refresh();
       setShowAddForm(false);
+      setPendingTimes([defaultPendingTime()]);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -111,7 +115,8 @@ export function DayModal({ event, date, slots, onClose }: DayModalProps) {
           <SlotVoteRow
             key={slot.id}
             slot={slot}
-            voterName={voterName as string}
+            eventType={event.type}
+            voterName={voterName}
             busy={busy}
             onVote={castVote}
           />
@@ -119,63 +124,91 @@ export function DayModal({ event, date, slots, onClose }: DayModalProps) {
 
         {showAddForm ? (
           <form
-            onSubmit={submitNewSlot}
-            className="space-y-3 rounded-md border border-dashed border-gray-300 p-3"
+            onSubmit={submitPendingTimes}
+            className="space-y-3 rounded-xl border border-dashed border-gray-300 p-3.5"
           >
             <p className="text-sm font-medium text-gray-700">
               {event.type === "open" ? "Add your availability" : "Suggest a time"}
             </p>
-            <div className="flex items-center gap-2 text-sm">
-              <input
-                type="time"
-                value={newStartTime}
-                onChange={(e) => setNewStartTime(e.target.value)}
-                className="rounded-md border border-gray-300 px-2 py-1"
-              />
-              {event.type === "preselected" && (
-                <>
-                  <span className="text-gray-400">to</span>
-                  <input
-                    type="time"
-                    value={newEndTime}
-                    onChange={(e) => setNewEndTime(e.target.value)}
-                    className="rounded-md border border-gray-300 px-2 py-1"
-                  />
-                </>
-              )}
-              {event.type === "open" && event.duration_minutes && (
-                <span className="text-gray-400">
-                  ends {formatTime(addMinutesToTime(newStartTime, event.duration_minutes))}
-                </span>
+
+            <div className="space-y-2">
+              {pendingTimes.map((time) =>
+                event.type === "open" ? (
+                  <div key={time.id} className="space-y-2 rounded-lg bg-gray-50 p-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <TimeSelect
+                        value={time.start_time}
+                        onChange={(value) => updatePendingTime(time.id, "start_time", value)}
+                      />
+                      {pendingTimes.length > 1 && (
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => removePendingTime(time.id)}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <DurationPicker
+                      minutes={time.durationMinutes}
+                      onChange={(value) => updatePendingTime(time.id, "durationMinutes", value)}
+                    />
+                    <p className="text-xs text-gray-400">
+                      Ends at{" "}
+                      {formatTime(addMinutesToTime(time.start_time, time.durationMinutes))}
+                    </p>
+                  </div>
+                ) : (
+                  <div key={time.id} className="flex items-center gap-2 text-sm">
+                    <TimeSelect
+                      value={time.start_time}
+                      onChange={(value) => updatePendingTime(time.id, "start_time", value)}
+                    />
+                    <span className="text-gray-400">to</span>
+                    <TimeSelect
+                      value={time.end_time}
+                      onChange={(value) => updatePendingTime(time.id, "end_time", value)}
+                    />
+                    {pendingTimes.length > 1 && (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => removePendingTime(time.id)}
+                        className="ml-auto"
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                )
               )}
             </div>
-            <div className="flex gap-2">
-              <button
+
+            <Button variant="info" size="sm" onClick={addPendingTime}>
+              + Add another time
+            </Button>
+
+            <div className="flex gap-2 pt-1">
+              <Button
                 type="submit"
-                disabled={busy}
-                className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                variant="primary"
+                size="sm"
+                disabled={busy || pendingTimes.length === 0}
               >
                 Save
-              </button>
+              </Button>
               {slots.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="text-sm text-gray-500 hover:underline"
-                >
+                <Button variant="neutral" size="sm" onClick={() => setShowAddForm(false)}>
                   Cancel
-                </button>
+                </Button>
               )}
             </div>
           </form>
         ) : (
-          <button
-            type="button"
-            onClick={() => setShowAddForm(true)}
-            className="text-sm text-blue-600 hover:underline"
-          >
+          <Button variant="info" size="sm" onClick={() => setShowAddForm(true)}>
             + Suggest another time for this day
-          </button>
+          </Button>
         )}
 
         {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
@@ -186,11 +219,13 @@ export function DayModal({ event, date, slots, onClose }: DayModalProps) {
 
 function SlotVoteRow({
   slot,
+  eventType,
   voterName,
   busy,
   onVote,
 }: {
   slot: SlotWithVotes;
+  eventType: EventRow["type"];
   voterName: string;
   busy: boolean;
   onVote: (slotId: string, response: "yes" | "no", note: string) => void;
@@ -199,51 +234,55 @@ function SlotVoteRow({
   const [note, setNote] = useState(myVote?.note ?? "");
   const yesCount = slot.votes.filter((v) => v.response === "yes").length;
   const noCount = slot.votes.filter((v) => v.response === "no").length;
+  const showVoteButtons = eventType !== "open";
 
   return (
-    <div className="rounded-md border border-gray-200 p-3">
+    <div className="rounded-xl border border-gray-200 p-3.5">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-900">
             {formatTimeRange(slot.start_time, slot.end_time)}
           </p>
           {slot.source === "user_added" && (
-            <p className="text-xs text-purple-600">
+            <p className="text-xs text-fuchsia-600">
               suggested by {slot.added_by_name}
             </p>
           )}
         </div>
-        <p className="text-xs text-gray-400">
-          {yesCount} yes · {noCount} no
-        </p>
+        {!showVoteButtons && (
+          <span className="flex shrink-0 items-center gap-2 text-xs">
+            <span className="text-emerald-600">✓ {yesCount}</span>
+            <span className="text-red-500">✗ {noCount}</span>
+          </span>
+        )}
       </div>
 
-      <div className="mt-2 flex items-center gap-2">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onVote(slot.id, "yes", note)}
-          className={`rounded-md px-3 py-1 text-sm ${
-            myVote?.response === "yes"
-              ? "bg-emerald-600 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-          }`}
-        >
-          👍 Yes
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onVote(slot.id, "no", note)}
-          className={`rounded-md px-3 py-1 text-sm ${
-            myVote?.response === "no"
-              ? "bg-red-600 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-          }`}
-        >
-          👎 No
-        </button>
-      </div>
+      {showVoteButtons && (
+        <div className="mt-2.5 flex items-center gap-2">
+          <Button
+            variant="success"
+            size="vote"
+            disabled={busy}
+            onClick={() => onVote(slot.id, "yes", note)}
+            title="Mark yourself as available for this time"
+            aria-label="I'm available"
+            className={myVote?.response === "yes" ? "bg-emerald-600 text-white hover:bg-emerald-600" : ""}
+          >
+            ✓ {yesCount}
+          </Button>
+          <Button
+            variant="danger"
+            size="vote"
+            disabled={busy}
+            onClick={() => onVote(slot.id, "no", note)}
+            title="Mark yourself as not available for this time"
+            aria-label="I'm not available"
+            className={myVote?.response === "no" ? "bg-red-600 text-white hover:bg-red-600" : ""}
+          >
+            ✗ {noCount}
+          </Button>
+        </div>
+      )}
 
       {myVote && (
         <input
@@ -252,7 +291,7 @@ function SlotVoteRow({
           onChange={(e) => setNote(e.target.value)}
           onBlur={() => onVote(slot.id, myVote.response, note)}
           placeholder="Add a note (optional)"
-          className="mt-2 w-full rounded-md border border-gray-200 px-2 py-1 text-xs"
+          className="mt-2.5 w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
         />
       )}
     </div>
@@ -270,13 +309,13 @@ function Modal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-5 shadow-xl">
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
         <div className="mb-4 flex items-start justify-between">
           <h3 className="text-base font-semibold text-gray-900">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           >
             ✕
           </button>

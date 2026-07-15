@@ -11,6 +11,7 @@ export interface EventRow {
   duration_minutes: number | null;
   status: EventStatus;
   confirmed_slot_id: string | null;
+  archived: boolean;
   created_at: string;
 }
 
