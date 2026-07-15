@@ -5,9 +5,7 @@ import { NewEventModal } from "@/components/NewEventModal";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  console.error("[DIAG] DashboardPage render start");
   const events = await getEvents();
-  console.error("[DIAG] DashboardPage got events, about to render JSX");
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">

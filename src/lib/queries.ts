@@ -5,22 +5,35 @@ export interface EventWithConfirmedSlot extends EventRow {
   confirmed_slot: SlotRow | null;
 }
 
-function diagScan(label: string, val: string | undefined): string {
-  if (!val) return `${label}=undefined/empty`;
-  const bad: string[] = [];
-  for (let i = 0; i < val.length; i++) {
-    const code = val.charCodeAt(i);
-    if (code > 255) bad.push(`idx${i}=${code}`);
-  }
-  return `${label}(len=${val.length},bad=[${bad.join(",")}])`;
-}
-
 export async function getEvents(): Promise<EventWithConfirmedSlot[]> {
-  const diag =
-    diagScan("URL", process.env.NEXT_PUBLIC_SUPABASE_URL) +
-    " " +
-    diagScan("KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-  throw new Error(`[DIAG-ENV] ${diag}`);
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .eq("archived", false)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  const events = data as EventRow[];
+
+  const confirmedSlotIds = events
+    .map((e) => e.confirmed_slot_id)
+    .filter((id): id is string => id !== null);
+
+  let confirmedSlots: SlotRow[] = [];
+  if (confirmedSlotIds.length > 0) {
+    const { data: slotRows, error: slotsError } = await supabase
+      .from("slots")
+      .select("*")
+      .in("id", confirmedSlotIds);
+    if (slotsError) throw new Error(slotsError.message);
+    confirmedSlots = slotRows as SlotRow[];
+  }
+
+  return events.map((event) => ({
+    ...event,
+    confirmed_slot:
+      confirmedSlots.find((s) => s.id === event.confirmed_slot_id) ?? null,
+  }));
 }
 
 export async function getEventWithSlots(
