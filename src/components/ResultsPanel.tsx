@@ -26,6 +26,21 @@ function sortByYesVotes(slots: SlotWithVotes[]) {
   return [...slots].sort((a, b) => yesCount(b) - yesCount(a));
 }
 
+function groupByDate(slots: SlotWithVotes[]) {
+  const groups = new Map<string, SlotWithVotes[]>();
+  for (const slot of slots) {
+    const existing = groups.get(slot.date);
+    if (existing) existing.push(slot);
+    else groups.set(slot.date, [slot]);
+  }
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, dateSlots]) => ({
+      date,
+      slots: [...dateSlots].sort((a, b) => a.start_time.localeCompare(b.start_time)),
+    }));
+}
+
 function collectParticipants(slots: SlotWithVotes[]) {
   const tally = new Map<string, { yes: number; no: number }>();
   for (const slot of slots) {
@@ -247,71 +262,82 @@ function SlotSection({
 }) {
   if (slots.length === 0) return null;
 
+  const dateGroups = groupByDate(slots);
+
   return (
     <div>
       <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
         {title}
       </h3>
-      <div className="space-y-1.5">
-        {slots.map((slot) => {
-          const isExpanded = expandedId === slot.id;
-          const label = `${formatDateShort(slot.date)} · ${formatTimeRange(slot.start_time, slot.end_time)}`;
+      <div className="space-y-3">
+        {dateGroups.map((group) => (
+          <div key={group.date}>
+            <p className="mb-1.5 font-bold text-gray-900">
+              {formatWeekday(group.date)} {formatMonthDay(group.date)}
+            </p>
+            <div className="space-y-1.5">
+              {group.slots.map((slot) => {
+                const isExpanded = expandedId === slot.id;
+                const label = `${formatDateShort(slot.date)} · ${formatTimeRange(slot.start_time, slot.end_time)}`;
 
-          return (
-            <div key={slot.id} className="relative rounded-lg border border-gray-200 p-2.5 pr-7 text-sm">
-              <OverflowMenu
-                items={[
-                  { label: "Confirm this Date", onClick: () => onRequestConfirm(slot.id, label) },
-                  { label: "Delete", onClick: () => onRequestDelete(slot.id, label), tone: "danger" },
-                ]}
-              />
-              <div className="flex items-center justify-between gap-2">
-                <div className="leading-tight">
-                  <p className="font-bold text-gray-900">
-                    {formatWeekday(slot.date)} {formatMonthDay(slot.date)}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {formatTimeRange(slot.start_time, slot.end_time)}
-                  </p>
-                  {slot.source === "user_added" && (
-                    <p className="text-xs text-fuchsia-600">
-                      suggested by {slot.added_by_name}
-                    </p>
-                  )}
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <Button
-                    variant="info"
-                    size="icon"
-                    onClick={() => setExpandedId(isExpanded ? null : slot.id)}
-                    title={isExpanded ? "Hide voters" : "Show voters"}
-                    aria-label={isExpanded ? "Hide voters" : "Show voters"}
-                  >
-                    👤
-                  </Button>
-                  <VoteButtons eventId={eventId} slot={slot} voterName={voterName} />
-                </div>
-              </div>
+                return (
+                  <div key={slot.id} className="relative rounded-lg border border-gray-200 p-2.5 pr-7 text-sm">
+                    <OverflowMenu
+                      items={[
+                        { label: "Confirm this Date", onClick: () => onRequestConfirm(slot.id, label) },
+                        { label: "Delete", onClick: () => onRequestDelete(slot.id, label), tone: "danger" },
+                      ]}
+                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="leading-tight">
+                        <p className="font-semibold text-gray-900">
+                          {formatTimeRange(slot.start_time, slot.end_time)}
+                        </p>
+                        {slot.source === "user_added" && (
+                          <p className="text-xs text-fuchsia-600">
+                            suggested by {slot.added_by_name}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <Button
+                          variant="info"
+                          size="icon"
+                          onClick={() => setExpandedId(isExpanded ? null : slot.id)}
+                          title={isExpanded ? "Hide voters" : "Show voters"}
+                          aria-label={isExpanded ? "Hide voters" : "Show voters"}
+                        >
+                          👤
+                        </Button>
+                        <VoteButtons eventId={eventId} slot={slot} voterName={voterName} />
+                      </div>
+                    </div>
 
-              {isExpanded && (
-                <ul className="mt-2 space-y-1 border-t border-gray-100 pt-2">
-                  {slot.votes.length === 0 && (
-                    <li className="text-xs text-gray-400">No votes yet.</li>
-                  )}
-                  {slot.votes.map((vote) => (
-                    <li key={vote.id} className="text-xs text-gray-600">
-                      <span className={vote.response === "yes" ? "text-emerald-700" : "text-red-600"}>
-                        {vote.response === "yes" ? "✓" : "✗"}
-                      </span>{" "}
-                      <span className="font-medium">{vote.voter_name}</span>
-                      {vote.note && <span className="text-gray-400"> — {vote.note}</span>}
-                    </li>
-                  ))}
-                </ul>
-              )}
+                    {isExpanded && (
+                      <div className="mt-2 border-t border-gray-100 pt-2">
+                        <ul className="space-y-1">
+                          {slot.votes.length === 0 && (
+                            <li className="text-xs text-gray-400">No votes yet.</li>
+                          )}
+                          {slot.votes.map((vote) => (
+                            <li key={vote.id} className="text-xs text-gray-600">
+                              <span className={vote.response === "yes" ? "text-emerald-700" : "text-red-600"}>
+                                {vote.response === "yes" ? "✓" : "✗"}
+                              </span>{" "}
+                              <span className="font-medium">{vote.voter_name}</span>
+                              {vote.note && <span className="text-gray-400"> — {vote.note}</span>}
+                            </li>
+                          ))}
+                        </ul>
+                        <NoteEditor eventId={eventId} slot={slot} voterName={voterName} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -371,6 +397,59 @@ function VoteButtons({
         ✗ {noCount(slot)}
       </Button>
     </>
+  );
+}
+
+function NoteEditor({
+  eventId,
+  slot,
+  voterName,
+}: {
+  eventId: string;
+  slot: SlotWithVotes;
+  voterName: string;
+}) {
+  const router = useRouter();
+  const myVote = slot.votes.find((v) => v.voter_name === voterName);
+  const [note, setNote] = useState(myVote?.note ?? "");
+  const [busy, setBusy] = useState(false);
+
+  const savedNote = myVote?.note ?? "";
+  const dirty = note.trim() !== savedNote.trim();
+
+  async function saveNote() {
+    setBusy(true);
+    try {
+      await upsertVote({
+        eventId,
+        slotId: slot.id,
+        voterName,
+        response: myVote?.response ?? "yes",
+        note: note.trim(),
+      });
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-2">
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Add a note…"
+        rows={2}
+        className="w-full resize-none rounded-lg border border-gray-200 p-2 text-xs text-gray-700 placeholder:text-gray-400 focus:border-fuchsia-300 focus:outline-none focus:ring-1 focus:ring-fuchsia-200"
+      />
+      {dirty && (
+        <div className="mt-1.5 flex justify-end">
+          <Button variant="info" size="sm" disabled={busy} onClick={saveNote}>
+            {savedNote ? "Update note" : "Save note"}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 
