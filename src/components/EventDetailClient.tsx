@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { EventWithSlots, SlotWithVotes } from "@/lib/types";
 import { MonthCalendar, DayContent } from "./MonthCalendar";
 import { ResultsPanel } from "./ResultsPanel";
-import { ParticipantsPanel } from "./ParticipantsPanel";
+import { EventDetailsPanel } from "./EventDetailsPanel";
+import { HowToVoteCard } from "./HowToVoteCard";
 import { DayModal } from "./DayModal";
 import { VoterNameGate } from "./VoterNameGate";
 import { StatusBadge } from "./StatusBadge";
@@ -57,12 +58,7 @@ export function EventDetailClient({ event }: { event: EventWithSlots }) {
   return (
     <>
       <div className="mb-6 mt-2 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-serif text-3xl font-semibold text-gray-900">{event.title}</h1>
-          {event.description && (
-            <p className="mt-1 text-sm text-gray-500">{event.description}</p>
-          )}
-        </div>
+        <h1 className="font-serif text-3xl font-semibold text-gray-900">{event.title}</h1>
         <div className="flex items-center gap-3">
           {loaded && voterName && (
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-500 shadow-sm">
@@ -77,7 +73,14 @@ export function EventDetailClient({ event }: { event: EventWithSlots }) {
         <VoterNameGate onSubmit={setVoterName} />
       ) : (
         <div className="space-y-6">
-          <ParticipantsPanel slots={event.slots} />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-7">
+            <div className="lg:col-span-5">
+              <EventDetailsPanel description={event.description} slots={event.slots} />
+            </div>
+            <div className="lg:col-span-2">
+              <HowToVoteCard />
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-7">
             <div className="lg:col-span-5">
