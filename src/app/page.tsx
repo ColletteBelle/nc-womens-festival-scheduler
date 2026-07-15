@@ -5,7 +5,9 @@ import { NewEventModal } from "@/components/NewEventModal";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  console.error("[DIAG] DashboardPage render start");
   const events = await getEvents();
+  console.error("[DIAG] DashboardPage got events, about to render JSX");
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
@@ -14,7 +16,7 @@ export default async function DashboardPage() {
           <h1 className="font-serif text-3xl font-semibold text-gray-900">
             North Coast Women&rsquo;s Festival Event Planning
           </h1>
-          <p className="mt-1 text-sm text-gray-500">Upcoming events</p>
+          <p className="mt-1 text-sm text-gray-500">Click on an upcoming event to vote</p>
         </div>
         <NewEventModal />
       </div>

@@ -6,6 +6,7 @@ export interface EventWithConfirmedSlot extends EventRow {
 }
 
 export async function getEvents(): Promise<EventWithConfirmedSlot[]> {
+  console.error("[DIAG] getEvents start, host:", process.env.NEXT_PUBLIC_SUPABASE_URL);
   const { data, error } = await supabase
     .from("events")
     .select("*")
@@ -14,10 +15,8 @@ export async function getEvents(): Promise<EventWithConfirmedSlot[]> {
 
   if (error) throw new Error(error.message);
   const events = data as EventRow[];
-  console.log(
-    "[DIAG] supabase host:",
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    "event count:",
+  console.error(
+    "[DIAG] event count:",
     events.length,
     "events:",
     JSON.stringify(
