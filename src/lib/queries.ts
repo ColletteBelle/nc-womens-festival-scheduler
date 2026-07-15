@@ -23,45 +23,6 @@ export async function getEvents(): Promise<EventWithConfirmedSlot[]> {
   throw new Error(`[DIAG-ENV] ${diag}`);
 }
 
-async function getEventsReal(): Promise<EventWithConfirmedSlot[]> {
-  const { data, error } = await supabase
-    .from("events")
-    .select("*")
-    .eq("archived", false)
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(error.message);
-  const events = data as EventRow[];
-  console.error(
-    "[DIAG] event count:",
-    events.length,
-    "events:",
-    JSON.stringify(
-      events.map((e) => ({ id: e.id, title: e.title, description: e.description }))
-    )
-  );
-
-  const confirmedSlotIds = events
-    .map((e) => e.confirmed_slot_id)
-    .filter((id): id is string => id !== null);
-
-  let confirmedSlots: SlotRow[] = [];
-  if (confirmedSlotIds.length > 0) {
-    const { data: slotRows, error: slotsError } = await supabase
-      .from("slots")
-      .select("*")
-      .in("id", confirmedSlotIds);
-    if (slotsError) throw new Error(slotsError.message);
-    confirmedSlots = slotRows as SlotRow[];
-  }
-
-  return events.map((event) => ({
-    ...event,
-    confirmed_slot:
-      confirmedSlots.find((s) => s.id === event.confirmed_slot_id) ?? null,
-  }));
-}
-
 export async function getEventWithSlots(
   eventId: string
 ): Promise<EventWithSlots | null> {
