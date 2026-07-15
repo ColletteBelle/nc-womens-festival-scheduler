@@ -5,8 +5,23 @@ export interface EventWithConfirmedSlot extends EventRow {
   confirmed_slot: SlotRow | null;
 }
 
+function diagScan(label: string, val: string | undefined) {
+  if (!val) {
+    console.error(`[DIAG] ${label} is undefined/empty`);
+    return;
+  }
+  const bad: string[] = [];
+  for (let i = 0; i < val.length; i++) {
+    const code = val.charCodeAt(i);
+    if (code > 255) bad.push(`idx=${i} code=${code}`);
+  }
+  console.error(`[DIAG] ${label} length=${val.length} badChars=${JSON.stringify(bad)}`);
+}
+
 export async function getEvents(): Promise<EventWithConfirmedSlot[]> {
-  console.error("[DIAG] getEvents start, host:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+  diagScan("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL);
+  diagScan("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  console.error("[DIAG] getEvents about to call supabase");
   const { data, error } = await supabase
     .from("events")
     .select("*")
