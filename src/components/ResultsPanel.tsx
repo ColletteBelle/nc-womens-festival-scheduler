@@ -139,7 +139,7 @@ export function ResultsPanel({
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:h-full">
       {event.type === "open" && distinctAvailabilityVoters.size >= 2 && (
         <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4 shadow-sm">
           <h2 className="font-serif text-xl font-semibold text-gray-900">Suggested Times</h2>
