@@ -12,9 +12,9 @@ export default async function DashboardPage() {
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-serif text-2xl font-semibold text-gray-900 sm:text-3xl">
-            North Coast Women&rsquo;s Festival Event Planning
+            Seeding Gatherings Calendar
           </h1>
-          <p className="mt-1 text-sm text-gray-500">Click on an upcoming event to vote</p>
+          <p className="mt-1 text-sm text-gray-500">Click on an event to view</p>
         </div>
         <div className="shrink-0">
           <NewEventModal />

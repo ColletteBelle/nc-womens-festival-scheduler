@@ -5,8 +5,15 @@ import { StatusBadge } from "./StatusBadge";
 import { EventCardMenu } from "./EventCardMenu";
 
 export function EventCard({ event }: { event: EventWithConfirmedSlot }) {
+  const isConfirmed = event.status === "confirmed" && event.confirmed_slot;
   return (
-    <div className="relative rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <div
+      className={`relative rounded-2xl border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+        isConfirmed
+          ? "border-emerald-200 bg-emerald-50"
+          : "border-gray-100 bg-white"
+      }`}
+    >
       <Link
         href={`/events/${event.id}`}
         className="absolute inset-0 rounded-2xl"
