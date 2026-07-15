@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EventRow, SlotWithVotes } from "@/lib/types";
 import { confirmSlot, deleteSlot, unconfirmEvent, upsertVote } from "@/lib/actions";
@@ -139,7 +139,7 @@ export function ResultsPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full flex-col gap-4">
       {event.type === "open" && distinctAvailabilityVoters.size >= 2 && (
         <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4 shadow-sm">
           <h2 className="font-serif text-xl font-semibold text-gray-900">Suggested Times</h2>
@@ -173,23 +173,21 @@ export function ResultsPanel({
         </div>
       )}
 
-      <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-        <h2 className="font-serif text-xl font-semibold text-gray-900">Summary</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          {participants.length} people voted · {slots.length} option
-          {slots.length === 1 ? "" : "s"}
-        </p>
-        <p className="mt-2 text-xs text-gray-400">
-          These are the proposed dates. Use ✓ / ✗ to mark whether you&rsquo;re
-          available, or suggest a new time on the calendar.
-        </p>
+      <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="shrink-0">
+          <h2 className="font-serif text-xl font-semibold text-gray-900">Proposed Dates</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            {participants.length} people voted · {slots.length} option
+            {slots.length === 1 ? "" : "s"}
+          </p>
+        </div>
 
         {slots.length === 0 ? (
           <p className="mt-4 rounded-xl border border-dashed border-gray-200 p-4 text-sm text-gray-400">
             No slots yet. Click a date on the calendar to add one.
           </p>
         ) : (
-          <div className="mt-3 space-y-4">
+          <div className="mt-3 min-h-0 flex-1 space-y-4 overflow-y-scroll pr-1">
             <SlotSection
               title="Options"
               slots={preselectedSlots}
@@ -281,7 +279,11 @@ function SlotSection({
                 const label = `${formatDateShort(slot.date)} · ${formatTimeRange(slot.start_time, slot.end_time)}`;
 
                 return (
-                  <div key={slot.id} className="relative rounded-lg border border-gray-200 p-2.5 pr-7 text-sm">
+                  <div
+                    key={slot.id}
+                    className="relative cursor-pointer rounded-lg border border-gray-200 p-2.5 pr-7 text-sm"
+                    onClick={() => setExpandedId(isExpanded ? null : slot.id)}
+                  >
                     <OverflowMenu
                       items={[
                         { label: "Confirm this Date", onClick: () => onRequestConfirm(slot.id, label) },
@@ -290,7 +292,7 @@ function SlotSection({
                     />
                     <div className="flex items-center justify-between gap-2">
                       <div className="leading-tight">
-                        <p className="font-semibold text-gray-900">
+                        <p className="text-gray-900">
                           {formatTimeRange(slot.start_time, slot.end_time)}
                         </p>
                         {slot.source === "user_added" && (
@@ -299,7 +301,10 @@ function SlotSection({
                           </p>
                         )}
                       </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
+                      <div
+                        className="flex shrink-0 items-center gap-1.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Button
                           variant="info"
                           size="icon"
@@ -314,7 +319,10 @@ function SlotSection({
                     </div>
 
                     {isExpanded && (
-                      <div className="mt-2 border-t border-gray-100 pt-2">
+                      <div
+                        className="mt-2 border-t border-gray-100 pt-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <ul className="space-y-1">
                           {slot.votes.length === 0 && (
                             <li className="text-xs text-gray-400">No votes yet.</li>
@@ -354,22 +362,39 @@ function VoteButtons({
 }) {
   const router = useRouter();
   const myVote = slot.votes.find((v) => v.voter_name === voterName);
-  const [busy, setBusy] = useState(false);
+  const serverResponse = myVote?.response ?? null;
 
-  async function vote(response: "yes" | "no") {
-    setBusy(true);
-    try {
-      await upsertVote({
-        eventId,
-        slotId: slot.id,
-        voterName,
-        response,
-        note: myVote?.note ?? "",
-      });
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
+  // Optimistic view of the current voter's response so the UI updates
+  // instantly instead of waiting for the server round-trip + refresh.
+  const [pending, setPending] = useState<"yes" | "no" | null>(null);
+
+  // Once the server (via router.refresh) reflects the pending value, drop it.
+  useEffect(() => {
+    if (pending !== null && serverResponse === pending) setPending(null);
+  }, [pending, serverResponse]);
+
+  const effective = pending ?? serverResponse;
+
+  let yes = yesCount(slot);
+  let no = noCount(slot);
+  if (pending !== null && pending !== serverResponse) {
+    if (serverResponse === "yes") yes -= 1;
+    if (serverResponse === "no") no -= 1;
+    if (pending === "yes") yes += 1;
+    if (pending === "no") no += 1;
+  }
+
+  function vote(response: "yes" | "no") {
+    setPending(response);
+    upsertVote({
+      eventId,
+      slotId: slot.id,
+      voterName,
+      response,
+      note: myVote?.note ?? "",
+    })
+      .then(() => router.refresh())
+      .catch(() => setPending(null));
   }
 
   return (
@@ -377,24 +402,22 @@ function VoteButtons({
       <Button
         variant="success"
         size="vote"
-        disabled={busy}
         onClick={() => vote("yes")}
         title="Mark yourself as available for this time"
         aria-label="I'm available"
-        className={myVote?.response === "yes" ? "bg-emerald-600 text-white hover:bg-emerald-600" : ""}
+        className={effective === "yes" ? "bg-emerald-600 text-white hover:bg-emerald-600" : ""}
       >
-        ✓ {yesCount(slot)}
+        ✓ {yes}
       </Button>
       <Button
         variant="danger"
         size="vote"
-        disabled={busy}
         onClick={() => vote("no")}
         title="Mark yourself as not available for this time"
         aria-label="I'm not available"
-        className={myVote?.response === "no" ? "bg-red-600 text-white hover:bg-red-600" : ""}
+        className={effective === "no" ? "bg-red-600 text-white hover:bg-red-600" : ""}
       >
-        ✗ {noCount(slot)}
+        ✗ {no}
       </Button>
     </>
   );
@@ -469,7 +492,7 @@ function OverflowMenu({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className={`absolute ${className}`}>
+    <div className={`absolute ${className}`} onClick={(e) => e.stopPropagation()}>
       <Button
         variant="bare"
         size="icon"

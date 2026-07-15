@@ -96,7 +96,7 @@ export function EventDetailClient({ event }: { event: EventWithSlots }) {
                 <Legend colorClass="bg-emerald-100 border-emerald-400" label="Confirmed" />
               </div>
             </div>
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 lg:h-full">
               <ResultsPanel event={event} slots={event.slots} voterName={voterName} />
             </div>
 
