@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createEvent } from "@/lib/actions";
+import { addPreselectedSlots } from "@/lib/actions";
 import { MonthCalendar } from "./MonthCalendar";
 import { TimeSelect } from "./TimeSelect";
 import { DurationPicker } from "./DurationPicker";
@@ -20,13 +20,7 @@ function newSlotId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function CreateEventForm({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+export function CreateEventForm({ eventId }: { eventId: string }) {
   const router = useRouter();
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -79,20 +73,17 @@ export function CreateEventForm({
 
     setSubmitting(true);
     try {
-      const { id } = await createEvent({
-        title,
-        description,
-        type: "preselected",
-        durationMinutes: null,
-        preselectedSlots: pickedSlots.map((slot) => ({
+      await addPreselectedSlots({
+        eventId,
+        slots: pickedSlots.map((slot) => ({
           date: slot.date,
           start_time: slot.start_time,
           end_time: addMinutesToTime(slot.start_time, slot.durationMinutes),
         })),
       });
-      router.push(`/events/${id}`);
+      router.push(`/events/${eventId}`);
     } catch (err) {
-      console.error("createEvent failed:", err);
+      console.error("addPreselectedSlots failed:", err);
       setSubmitting(false);
       setErrorMessage(err instanceof Error ? err.message : "Something went wrong.");
     }

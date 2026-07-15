@@ -27,31 +27,22 @@ export function NewEventModal() {
       return;
     }
 
-    if (type === "open") {
-      setSubmitting(true);
-      setErrorMessage(null);
-      try {
-        const { id } = await createEvent({
-          title: title.trim(),
-          description: description.trim(),
-          type: "open",
-          durationMinutes,
-          preselectedSlots: [],
-        });
-        router.push(`/events/${id}`);
-      } catch (err) {
-        console.error("createEvent failed:", err);
-        setSubmitting(false);
-        setErrorMessage(err instanceof Error ? err.message : "Something went wrong.");
-      }
-      return;
+    setSubmitting(true);
+    setErrorMessage(null);
+    try {
+      const { id } = await createEvent({
+        title: title.trim(),
+        description: description.trim(),
+        type,
+        durationMinutes: type === "open" ? durationMinutes : null,
+        preselectedSlots: [],
+      });
+      router.push(type === "open" ? `/events/${id}` : `/new/${id}`);
+    } catch (err) {
+      console.error("createEvent failed:", err);
+      setSubmitting(false);
+      setErrorMessage(err instanceof Error ? err.message : "Something went wrong.");
     }
-
-    const params = new URLSearchParams({
-      title: title.trim(),
-      description: description.trim(),
-    });
-    router.push(`/new?${params.toString()}`);
   }
 
   return (

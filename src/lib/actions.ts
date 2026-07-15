@@ -54,6 +54,31 @@ export async function createEvent(input: {
   return { id: event.id as string };
 }
 
+export async function addPreselectedSlots(input: {
+  eventId: string;
+  slots: NewPreselectedSlot[];
+}) {
+  if (input.slots.length === 0) return;
+
+  const { error } = await supabase.from("slots").insert(
+    input.slots.map((slot) => ({
+      event_id: input.eventId,
+      date: slot.date,
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      source: "preselected" as const,
+      added_by_name: null,
+    }))
+  );
+
+  if (error) {
+    console.error("addPreselectedSlots: failed to insert slots", error);
+    throw new Error(error.message);
+  }
+
+  revalidatePath(`/events/${input.eventId}`);
+}
+
 export async function addSlot(input: {
   eventId: string;
   date: string;
