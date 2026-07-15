@@ -14,6 +14,16 @@ export async function getEvents(): Promise<EventWithConfirmedSlot[]> {
 
   if (error) throw new Error(error.message);
   const events = data as EventRow[];
+  console.log(
+    "[DIAG] supabase host:",
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    "event count:",
+    events.length,
+    "events:",
+    JSON.stringify(
+      events.map((e) => ({ id: e.id, title: e.title, description: e.description }))
+    )
+  );
 
   const confirmedSlotIds = events
     .map((e) => e.confirmed_slot_id)
