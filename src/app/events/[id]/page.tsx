@@ -14,7 +14,7 @@ export default async function EventDetailPage({
   if (!event) notFound();
 
   return (
-    <main className="mx-auto max-w-[1400px] px-6 py-10">
+    <main className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 sm:py-10">
       <Link
         href="/"
         className="text-sm font-medium text-gray-500 hover:text-violet-600"

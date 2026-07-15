@@ -19,7 +19,7 @@ export function HowToVoteCard() {
         <li className="flex gap-2">
           <span className="shrink-0 font-semibold text-violet-700">1.</span>
           <span>
-            Review the summary below and click <VoteIcon variant="yes" /> if you&rsquo;re
+            Review the proposed dates below and click <VoteIcon variant="yes" /> if you&rsquo;re
             available and <VoteIcon variant="no" /> if you&rsquo;re not.
           </span>
         </li>

@@ -187,7 +187,7 @@ export function ResultsPanel({
             No slots yet. Click a date on the calendar to add one.
           </p>
         ) : (
-          <div className="mt-3 min-h-0 flex-1 space-y-4 overflow-y-scroll pr-1">
+          <div className="scrollbar-always mt-3 min-h-0 flex-1 space-y-4 overflow-y-scroll pr-1">
             <SlotSection
               title="Options"
               slots={preselectedSlots}

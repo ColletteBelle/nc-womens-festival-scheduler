@@ -13,7 +13,7 @@ export function EventCard({ event }: { event: EventWithConfirmedSlot }) {
         aria-label={event.title}
       />
       <div className="flex items-start justify-between gap-3">
-        <h3 className="pointer-events-none font-medium text-gray-900">{event.title}</h3>
+        <h2 className="pointer-events-none font-medium text-gray-900">{event.title}</h2>
         <div className="flex items-center gap-1.5">
           <span className="pointer-events-none">
             <StatusBadge status={event.status} />

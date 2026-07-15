@@ -49,7 +49,7 @@ export function MonthCalendar({
   });
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-5">
       <div className="mb-4 flex items-center justify-between">
         <button
           type="button"
@@ -74,15 +74,16 @@ export function MonthCalendar({
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-2 text-center text-xs font-medium text-gray-400">
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-gray-400 sm:gap-2 sm:text-xs">
         {WEEKDAY_LABELS.map((label) => (
           <div key={label} className="py-1">
-            {label}
+            <span className="sm:hidden">{label.charAt(0)}</span>
+            <span className="hidden sm:inline">{label}</span>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {weeks.map((week) =>
           week.map((day) => {
             const key = dateKey(day);
@@ -93,7 +94,7 @@ export function MonthCalendar({
                 key={key}
                 type="button"
                 onClick={() => onDayClick(key)}
-                className={`min-h-24 rounded-xl border p-2 text-left text-xs transition ${
+                className={`min-h-16 rounded-lg border p-1 text-left text-xs transition sm:min-h-24 sm:rounded-xl sm:p-2 ${
                   inMonth
                     ? "border-gray-100"
                     : "border-transparent text-gray-300"
@@ -103,7 +104,7 @@ export function MonthCalendar({
                   {day.getDate()}
                 </div>
                 {content?.lines.map((line, i) => (
-                  <div key={i} className="mt-1 truncate text-[11px] font-medium leading-tight">
+                  <div key={i} className="mt-0.5 truncate text-[10px] font-medium leading-tight sm:mt-1 sm:text-[11px]">
                     {line}
                   </div>
                 ))}

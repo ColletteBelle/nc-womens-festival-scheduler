@@ -8,15 +8,17 @@ export default async function DashboardPage() {
   const events = await getEvents();
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12">
-      <div className="mb-8 flex items-center justify-between">
+    <main className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-semibold text-gray-900">
+          <h1 className="font-serif text-2xl font-semibold text-gray-900 sm:text-3xl">
             North Coast Women&rsquo;s Festival Event Planning
           </h1>
           <p className="mt-1 text-sm text-gray-500">Click on an upcoming event to vote</p>
         </div>
-        <NewEventModal />
+        <div className="shrink-0">
+          <NewEventModal />
+        </div>
       </div>
 
       {events.length === 0 ? (

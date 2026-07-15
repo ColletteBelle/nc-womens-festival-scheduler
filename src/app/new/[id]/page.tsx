@@ -14,7 +14,7 @@ export default async function NewEventDatesPage({
   if (!event) notFound();
 
   return (
-    <main className="mx-auto max-w-[1400px] px-6 py-10">
+    <main className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 sm:py-10">
       <Link
         href="/"
         className="text-sm font-medium text-gray-500 hover:text-violet-600"
@@ -22,7 +22,7 @@ export default async function NewEventDatesPage({
         ← Back to events
       </Link>
       <div className="mb-6 mt-2">
-        <h1 className="font-serif text-3xl font-semibold text-gray-900">{event.title}</h1>
+        <h1 className="font-serif text-2xl font-semibold text-gray-900 sm:text-3xl">{event.title}</h1>
         {event.description && (
           <p className="mt-1 text-sm text-gray-500">{event.description}</p>
         )}

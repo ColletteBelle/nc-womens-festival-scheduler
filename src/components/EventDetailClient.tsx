@@ -57,9 +57,9 @@ export function EventDetailClient({ event }: { event: EventWithSlots }) {
 
   return (
     <>
-      <div className="mb-6 mt-2 flex items-start justify-between gap-3">
-        <h1 className="font-serif text-3xl font-semibold text-gray-900">{event.title}</h1>
-        <div className="flex items-center gap-3">
+      <div className="mb-6 mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <h1 className="font-serif text-2xl font-semibold text-gray-900 sm:text-3xl">{event.title}</h1>
+        <div className="flex flex-wrap items-center gap-3">
           {loaded && voterName && (
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-500 shadow-sm">
               Voting as <span className="text-gray-900">{voterName}</span>
