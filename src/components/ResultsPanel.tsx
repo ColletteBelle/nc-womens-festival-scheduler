@@ -520,11 +520,13 @@ function VoteButtons({
   }
 
   // When voting is closed, show the tallies as static, disabled buttons — but keep
-  // the top-ranked slot's ✓ saturated (full opacity, dark green) via disabled:opacity-100.
+  // the top-ranked slot's ✓ saturated (full opacity, dark green). Needs the important
+  // modifier: the shared button base sets disabled:opacity-50, which has equal
+  // specificity and is emitted later in the stylesheet, so it would otherwise win.
   const yesSaturated = readOnly && winner;
   const yesClass =
     effective === "yes" || yesSaturated
-      ? `bg-emerald-600 text-white hover:bg-emerald-600${yesSaturated ? " disabled:opacity-100" : ""}`
+      ? `bg-emerald-600 text-white hover:bg-emerald-600${yesSaturated ? " !opacity-100" : ""}`
       : "";
   return (
     <>
