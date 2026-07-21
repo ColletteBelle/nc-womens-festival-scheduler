@@ -65,7 +65,7 @@ export function EventDetailClient({ event }: { event: EventWithSlots }) {
               Voting as <span className="text-gray-900">{voterName}</span>
             </span>
           )}
-          <StatusBadge status={event.status} />
+          <StatusBadge status={event.status} votingClosed={event.voting_closed} />
         </div>
       </div>
 

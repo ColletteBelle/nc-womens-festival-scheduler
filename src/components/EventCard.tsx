@@ -23,7 +23,7 @@ export function EventCard({ event }: { event: EventWithConfirmedSlot }) {
         <h2 className="pointer-events-none font-serif text-2xl font-semibold text-gray-900 sm:text-3xl">{event.title}</h2>
         <div className="flex items-center gap-1.5">
           <span className="pointer-events-none">
-            <StatusBadge status={event.status} />
+            <StatusBadge status={event.status} votingClosed={event.voting_closed} />
           </span>
           <EventCardMenu eventId={event.id} eventTitle={event.title} />
         </div>
