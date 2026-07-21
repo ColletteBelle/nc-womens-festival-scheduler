@@ -34,7 +34,8 @@ interface DayModalProps {
 
 export function DayModal({ event, date, slots, voterName, onClose }: DayModalProps) {
   const router = useRouter();
-  const [showAddForm, setShowAddForm] = useState(slots.length === 0);
+  const votingClosed = event.voting_closed;
+  const [showAddForm, setShowAddForm] = useState(slots.length === 0 && !event.voting_closed);
   const [pendingTimes, setPendingTimes] = useState<PendingTime[]>(() => [
     defaultPendingTime(),
   ]);
@@ -118,11 +119,16 @@ export function DayModal({ event, date, slots, voterName, onClose }: DayModalPro
             eventType={event.type}
             voterName={voterName}
             busy={busy}
+            votingClosed={votingClosed}
             onVote={castVote}
           />
         ))}
 
-        {showAddForm ? (
+        {votingClosed ? (
+          <p className="rounded-xl border border-dashed border-gray-200 p-3.5 text-sm text-gray-400">
+            Voting is closed for this event.
+          </p>
+        ) : showAddForm ? (
           <form
             onSubmit={submitPendingTimes}
             className="space-y-3 rounded-xl border border-dashed border-gray-300 p-3.5"
@@ -222,19 +228,21 @@ function SlotVoteRow({
   eventType,
   voterName,
   busy,
+  votingClosed,
   onVote,
 }: {
   slot: SlotWithVotes;
   eventType: EventRow["type"];
   voterName: string;
   busy: boolean;
+  votingClosed: boolean;
   onVote: (slotId: string, response: "yes" | "no", note: string) => void;
 }) {
   const myVote = slot.votes.find((v) => v.voter_name === voterName);
   const [note, setNote] = useState(myVote?.note ?? "");
   const yesCount = slot.votes.filter((v) => v.response === "yes").length;
   const noCount = slot.votes.filter((v) => v.response === "no").length;
-  const showVoteButtons = eventType !== "open";
+  const showVoteButtons = eventType !== "open" && !votingClosed;
 
   return (
     <div className="rounded-xl border border-gray-200 p-3.5">
@@ -284,7 +292,7 @@ function SlotVoteRow({
         </div>
       )}
 
-      {myVote && (
+      {myVote && !votingClosed && (
         <input
           type="text"
           value={note}

@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EventRow, SlotWithVotes } from "@/lib/types";
-import { confirmSlot, deleteSlot, unconfirmEvent, upsertVote } from "@/lib/actions";
+import {
+  confirmSlot,
+  deleteSlot,
+  setVotingClosed,
+  unconfirmEvent,
+  upsertVote,
+} from "@/lib/actions";
 import {
   formatDateShort,
   formatDuration,
@@ -24,6 +30,18 @@ function noCount(slot: SlotWithVotes) {
 
 function sortByYesVotes(slots: SlotWithVotes[]) {
   return [...slots].sort((a, b) => yesCount(b) - yesCount(a));
+}
+
+// Ranking used once voting is closed: most ✓ first, ties broken by fewer ✗,
+// then earliest date, then earliest start time — a stable, flat ordering.
+function sortForResults(slots: SlotWithVotes[]) {
+  return [...slots].sort(
+    (a, b) =>
+      yesCount(b) - yesCount(a) ||
+      noCount(a) - noCount(b) ||
+      a.date.localeCompare(b.date) ||
+      a.start_time.localeCompare(b.start_time)
+  );
 }
 
 function groupByDate(slots: SlotWithVotes[]) {
@@ -76,6 +94,7 @@ export function ResultsPanel({
   const [busy, setBusy] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
+  const closed = event.voting_closed;
   const confirmedSlot = slots.find((s) => s.id === event.confirmed_slot_id) ?? null;
   const preselectedSlots = sortByYesVotes(
     slots.filter((s) => s.source === "preselected")
@@ -83,6 +102,10 @@ export function ResultsPanel({
   const suggestedSlots = sortByYesVotes(
     slots.filter((s) => s.source === "user_added")
   );
+  const rankedSlots = sortForResults(slots);
+  // Highest ✓ count in the closed/ranked view; every slot matching it is a "winner"
+  // (handles ties) and keeps its green check saturated instead of dimmed.
+  const topYes = rankedSlots.length ? yesCount(rankedSlots[0]) : 0;
   const participants = collectParticipants(slots);
   const distinctAvailabilityVoters = new Set(
     slots.filter((s) => s.source === "user_added" && s.added_by_name).map((s) => s.added_by_name)
@@ -96,6 +119,16 @@ export function ResultsPanel({
     setBusy(true);
     try {
       await unconfirmEvent({ eventId: event.id });
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleToggleVoting() {
+    setBusy(true);
+    try {
+      await setVotingClosed({ eventId: event.id, closed: !closed });
       router.refresh();
     } finally {
       setBusy(false);
@@ -138,6 +171,11 @@ export function ResultsPanel({
     );
   }
 
+  const requestConfirm = (slotId: string, label: string) =>
+    setPendingAction({ slotId, kind: "confirm", label });
+  const requestDelete = (slotId: string, label: string) =>
+    setPendingAction({ slotId, kind: "delete", label });
+
   return (
     <div className="flex flex-col gap-4 lg:h-full">
       {event.type === "open" && distinctAvailabilityVoters.size >= 2 && (
@@ -175,10 +213,25 @@ export function ResultsPanel({
 
       <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="shrink-0">
-          <h2 className="font-serif text-xl font-semibold text-gray-900">Proposed Dates</h2>
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="font-serif text-xl font-semibold text-gray-900">Proposed Dates</h2>
+            <Button
+              variant={closed ? "success" : "neutral"}
+              size="sm"
+              disabled={busy}
+              onClick={handleToggleVoting}
+              className="shrink-0"
+              title={closed ? "Reopen voting" : "Close voting and rank the results"}
+            >
+              {closed ? "Open Voting" : "Close Voting"}
+            </Button>
+          </div>
           <p className="mt-1 text-sm text-gray-500">
-            {participants.length} people voted · {slots.length} option
-            {slots.length === 1 ? "" : "s"}
+            {closed && (
+              <span className="font-medium text-gray-700">Voting closed · </span>
+            )}
+            {participants.length} {participants.length === 1 ? "person" : "people"} voted ·{" "}
+            {slots.length} option{slots.length === 1 ? "" : "s"}
           </p>
         </div>
 
@@ -186,6 +239,23 @@ export function ResultsPanel({
           <p className="mt-4 rounded-xl border border-dashed border-gray-200 p-4 text-sm text-gray-400">
             No slots yet. Click a date on the calendar to add one.
           </p>
+        ) : closed ? (
+          <div className="scrollbar-always mt-3 min-h-0 flex-1 space-y-1.5 overflow-y-scroll pr-1">
+            {rankedSlots.map((slot) => (
+              <SlotCard
+                key={slot.id}
+                slot={slot}
+                isExpanded
+                readOnly
+                winner={topYes > 0 && yesCount(slot) === topYes}
+                onToggle={() => {}}
+                onRequestConfirm={requestConfirm}
+                onRequestDelete={requestDelete}
+                eventId={event.id}
+                voterName={voterName}
+              />
+            ))}
+          </div>
         ) : (
           <div className="scrollbar-always mt-3 min-h-0 flex-1 space-y-4 overflow-y-scroll pr-1">
             <SlotSection
@@ -193,12 +263,8 @@ export function ResultsPanel({
               slots={preselectedSlots}
               expandedId={expandedId}
               setExpandedId={setExpandedId}
-              onRequestConfirm={(slotId, label) =>
-                setPendingAction({ slotId, kind: "confirm", label })
-              }
-              onRequestDelete={(slotId, label) =>
-                setPendingAction({ slotId, kind: "delete", label })
-              }
+              onRequestConfirm={requestConfirm}
+              onRequestDelete={requestDelete}
               eventId={event.id}
               voterName={voterName}
             />
@@ -207,12 +273,8 @@ export function ResultsPanel({
               slots={suggestedSlots}
               expandedId={expandedId}
               setExpandedId={setExpandedId}
-              onRequestConfirm={(slotId, label) =>
-                setPendingAction({ slotId, kind: "confirm", label })
-              }
-              onRequestDelete={(slotId, label) =>
-                setPendingAction({ slotId, kind: "delete", label })
-              }
+              onRequestConfirm={requestConfirm}
+              onRequestDelete={requestDelete}
               eventId={event.id}
               voterName={voterName}
             />
@@ -276,71 +338,18 @@ function SlotSection({
             <div className="space-y-1.5">
               {group.slots.map((slot) => {
                 const isExpanded = expandedId === slot.id;
-                const label = `${formatDateShort(slot.date)} · ${formatTimeRange(slot.start_time, slot.end_time)}`;
-
                 return (
-                  <div
+                  <SlotCard
                     key={slot.id}
-                    className="relative cursor-pointer rounded-lg border border-gray-200 p-2.5 pr-7 text-sm"
-                    onClick={() => setExpandedId(isExpanded ? null : slot.id)}
-                  >
-                    <OverflowMenu
-                      items={[
-                        { label: "Confirm this Date", onClick: () => onRequestConfirm(slot.id, label) },
-                        { label: "Delete", onClick: () => onRequestDelete(slot.id, label), tone: "danger" },
-                      ]}
-                    />
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="leading-tight">
-                        <p className="text-gray-900">
-                          {formatTimeRange(slot.start_time, slot.end_time)}
-                        </p>
-                        {slot.source === "user_added" && (
-                          <p className="text-xs text-fuchsia-600">
-                            suggested by {slot.added_by_name}
-                          </p>
-                        )}
-                      </div>
-                      <div
-                        className="flex shrink-0 items-center gap-1.5"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Button
-                          variant="info"
-                          size="icon"
-                          onClick={() => setExpandedId(isExpanded ? null : slot.id)}
-                          title={isExpanded ? "Hide voters" : "Show voters"}
-                          aria-label={isExpanded ? "Hide voters" : "Show voters"}
-                        >
-                          👤
-                        </Button>
-                        <VoteButtons eventId={eventId} slot={slot} voterName={voterName} />
-                      </div>
-                    </div>
-
-                    {isExpanded && (
-                      <div
-                        className="mt-2 border-t border-gray-100 pt-2"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <ul className="space-y-1">
-                          {slot.votes.length === 0 && (
-                            <li className="text-xs text-gray-400">No votes yet.</li>
-                          )}
-                          {slot.votes.map((vote) => (
-                            <li key={vote.id} className="text-xs text-gray-600">
-                              <span className={vote.response === "yes" ? "text-emerald-700" : "text-red-600"}>
-                                {vote.response === "yes" ? "✓" : "✗"}
-                              </span>{" "}
-                              <span className="font-medium">{vote.voter_name}</span>
-                              {vote.note && <span className="text-gray-400"> — {vote.note}</span>}
-                            </li>
-                          ))}
-                        </ul>
-                        <NoteEditor eventId={eventId} slot={slot} voterName={voterName} />
-                      </div>
-                    )}
-                  </div>
+                    slot={slot}
+                    isExpanded={isExpanded}
+                    readOnly={false}
+                    onToggle={() => setExpandedId(isExpanded ? null : slot.id)}
+                    onRequestConfirm={onRequestConfirm}
+                    onRequestDelete={onRequestDelete}
+                    eventId={eventId}
+                    voterName={voterName}
+                  />
                 );
               })}
             </div>
@@ -351,14 +360,127 @@ function SlotSection({
   );
 }
 
+function SlotCard({
+  slot,
+  isExpanded,
+  readOnly,
+  winner = false,
+  onToggle,
+  onRequestConfirm,
+  onRequestDelete,
+  eventId,
+  voterName,
+}: {
+  slot: SlotWithVotes;
+  isExpanded: boolean;
+  // readOnly === voting closed: disables voting/notes and shows the date inline
+  // (the flat ranked list has no date-group header to provide it).
+  readOnly: boolean;
+  // Top-ranked slot in the closed view — keeps its ✓ saturated instead of dimmed.
+  winner?: boolean;
+  onToggle: () => void;
+  onRequestConfirm: (slotId: string, label: string) => void;
+  onRequestDelete: (slotId: string, label: string) => void;
+  eventId: string;
+  voterName: string;
+}) {
+  const label = `${formatDateShort(slot.date)} · ${formatTimeRange(slot.start_time, slot.end_time)}`;
+
+  return (
+    <div
+      className="relative cursor-pointer rounded-lg border border-gray-200 p-2.5 pr-7 text-sm"
+      onClick={onToggle}
+    >
+      <OverflowMenu
+        items={[
+          { label: "Confirm this Date", onClick: () => onRequestConfirm(slot.id, label) },
+          { label: "Delete", onClick: () => onRequestDelete(slot.id, label), tone: "danger" },
+        ]}
+      />
+      <div className="flex items-center justify-between gap-2">
+        <div className="leading-tight">
+          <p className="text-gray-900">
+            {readOnly ? (
+              <>
+                <span className="font-bold">
+                  {formatWeekday(slot.date)} {formatMonthDay(slot.date)}
+                </span>
+                <span className="text-gray-500">
+                  {" "}
+                  · {formatTimeRange(slot.start_time, slot.end_time)}
+                </span>
+              </>
+            ) : (
+              formatTimeRange(slot.start_time, slot.end_time)
+            )}
+          </p>
+          {slot.source === "user_added" && (
+            <p className="text-xs text-fuchsia-600">suggested by {slot.added_by_name}</p>
+          )}
+        </div>
+        <div
+          className="flex shrink-0 items-center gap-1.5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {!readOnly && (
+            <Button
+              variant="info"
+              size="icon"
+              onClick={onToggle}
+              title={isExpanded ? "Hide voters" : "Show voters"}
+              aria-label={isExpanded ? "Hide voters" : "Show voters"}
+            >
+              👤
+            </Button>
+          )}
+          <VoteButtons
+            eventId={eventId}
+            slot={slot}
+            voterName={voterName}
+            readOnly={readOnly}
+            winner={winner}
+          />
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div
+          className="mt-2 border-t border-gray-100 pt-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ul className="space-y-1">
+            {slot.votes.length === 0 && (
+              <li className="text-xs text-gray-400">No votes yet.</li>
+            )}
+            {slot.votes.map((vote) => (
+              <li key={vote.id} className="text-xs text-gray-600">
+                <span className={vote.response === "yes" ? "text-emerald-700" : "text-red-600"}>
+                  {vote.response === "yes" ? "✓" : "✗"}
+                </span>{" "}
+                <span className="font-medium">{vote.voter_name}</span>
+                {vote.note && <span className="text-gray-400"> — {vote.note}</span>}
+              </li>
+            ))}
+          </ul>
+          {!readOnly && <NoteEditor eventId={eventId} slot={slot} voterName={voterName} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function VoteButtons({
   eventId,
   slot,
   voterName,
+  readOnly = false,
+  winner = false,
 }: {
   eventId: string;
   slot: SlotWithVotes;
   voterName: string;
+  readOnly?: boolean;
+  winner?: boolean;
 }) {
   const router = useRouter();
   const myVote = slot.votes.find((v) => v.voter_name === voterName);
@@ -397,22 +519,31 @@ function VoteButtons({
       .catch(() => setPending(null));
   }
 
+  // When voting is closed, show the tallies as static, disabled buttons — but keep
+  // the top-ranked slot's ✓ saturated (full opacity, dark green) via disabled:opacity-100.
+  const yesSaturated = readOnly && winner;
+  const yesClass =
+    effective === "yes" || yesSaturated
+      ? `bg-emerald-600 text-white hover:bg-emerald-600${yesSaturated ? " disabled:opacity-100" : ""}`
+      : "";
   return (
     <>
       <Button
         variant="success"
         size="vote"
-        onClick={() => vote("yes")}
+        disabled={readOnly}
+        onClick={readOnly ? undefined : () => vote("yes")}
         title="Mark yourself as available for this time"
         aria-label="I'm available"
-        className={effective === "yes" ? "bg-emerald-600 text-white hover:bg-emerald-600" : ""}
+        className={yesClass}
       >
         ✓ {yes}
       </Button>
       <Button
         variant="danger"
         size="vote"
-        onClick={() => vote("no")}
+        disabled={readOnly}
+        onClick={readOnly ? undefined : () => vote("no")}
         title="Mark yourself as not available for this time"
         aria-label="I'm not available"
         className={effective === "no" ? "bg-red-600 text-white hover:bg-red-600" : ""}

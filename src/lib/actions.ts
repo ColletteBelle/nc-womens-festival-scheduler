@@ -10,6 +10,19 @@ export interface NewPreselectedSlot {
   end_time: string;
 }
 
+// Throws when voting has been closed for the event, so closed events reject
+// vote/slot writes server-side even if a client bypasses the disabled UI.
+async function assertVotingOpen(eventId: string) {
+  const { data, error } = await supabase
+    .from("events")
+    .select("voting_closed")
+    .eq("id", eventId)
+    .single();
+
+  if (error) throw new Error(error.message);
+  if (data?.voting_closed) throw new Error("Voting is closed for this event.");
+}
+
 export async function createEvent(input: {
   title: string;
   description: string;
@@ -86,6 +99,8 @@ export async function addSlot(input: {
   endTime: string;
   addedByName: string;
 }) {
+  await assertVotingOpen(input.eventId);
+
   const { data: slot, error } = await supabase
     .from("slots")
     .insert({
@@ -118,6 +133,8 @@ export async function upsertVote(input: {
   response: VoteResponse;
   note: string;
 }) {
+  await assertVotingOpen(input.eventId);
+
   const { error } = await supabase.from("votes").upsert(
     {
       slot_id: input.slotId,
@@ -158,6 +175,17 @@ export async function unconfirmEvent(input: { eventId: string }) {
   const { error } = await supabase
     .from("events")
     .update({ status: "open", confirmed_slot_id: null })
+    .eq("id", input.eventId);
+
+  if (error) throw new Error(error.message);
+  revalidatePath(`/events/${input.eventId}`);
+  revalidatePath("/");
+}
+
+export async function setVotingClosed(input: { eventId: string; closed: boolean }) {
+  const { error } = await supabase
+    .from("events")
+    .update({ voting_closed: input.closed })
     .eq("id", input.eventId);
 
   if (error) throw new Error(error.message);

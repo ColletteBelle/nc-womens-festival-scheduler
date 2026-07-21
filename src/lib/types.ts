@@ -12,6 +12,7 @@ export interface EventRow {
   status: EventStatus;
   confirmed_slot_id: string | null;
   archived: boolean;
+  voting_closed: boolean;
   created_at: string;
 }
 
